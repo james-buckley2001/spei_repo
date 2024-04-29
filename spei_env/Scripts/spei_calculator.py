@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
+#TODO if no name in first heading then use second heading
+
 @dataclass
 class DataStorage():
     possible_acculmulation_periods:list[float] = field(default_factory=list)
@@ -52,22 +54,19 @@ class SpeiCalculator(DataStorage):
             start_date_obj = new_date
         return dates_list
 
-    def aggregate_data_for_acculmulation_period(self, df = None) -> pd.DataFrame: 
-        df = self.rainfall_data
+    def produce_mean_time_series_one_starting_each_month(self, df = None) -> pd.DataFrame: 
         df['Date'] = pd.to_datetime(df[['Year', 'Month']].assign(day=1))
 
         list_of_time_series = []
         for month in range(1,13):
             start_date = datetime.strptime(f'{self._start_year}-{month:02d}-01', '%Y-%m-%d')
             end_date = datetime.strptime(f'{self._end_year}-{month:02d}-01', '%Y-%m-%d')
-
             aggregation_start_dates = self.generate_aggregation_dates(start_date, end_date)
             aggregation_end_dates = [date - relativedelta(months=self.acculmulation_period-1) for date in aggregation_start_dates]
             aggregation_dates_df = pd.DataFrame({
                                         'aggregation_start_dates': aggregation_start_dates,
                                         'aggregation_end_dates': aggregation_end_dates
                                     })
-
             averaged_data = []
             for _, row in aggregation_dates_df.iterrows():
                 df_filtered = df[(df['Date'] <= row['aggregation_start_dates']) & (df['Date'] >= row['aggregation_end_dates'])]
@@ -82,12 +81,15 @@ class SpeiCalculator(DataStorage):
             time_series_df =  pd.concat(averaged_data, axis=0)
             list_of_time_series.append(time_series_df)
 
-        self.list_of_time_series = list_of_time_series
+        return list_of_time_series
 
- 
+    def aggregate_water_balance_data(self):
+        self.list_of_time_series_rainfall = self.produce_mean_time_series_one_starting_each_month(df = self.rainfall_data)
+        self.list_of_time_series_pet = self.produce_mean_time_series_one_starting_each_month(df = self.pet_data)
 
     def calculate_water_balance(self):
         #pet = potential evapotranspiration
+        #for each date, for each time series
         pass
 
     def standardise_values(self):
@@ -98,5 +100,5 @@ if __name__ == '__main__':
 
     spei_calc = SpeiCalculator(acculmulation_period= 6)
     spei_calc.import_input_data()
-    spei_calc.aggregate_data_for_acculmulation_period(df = spei_calc.rainfall_data[0:4])
+    spei_calc.aggregate_water_balance_data()
     print('egg')
