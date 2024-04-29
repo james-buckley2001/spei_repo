@@ -69,7 +69,7 @@ class SpeiCalculator(DataStorage):
                                         'aggregation_end_dates': aggregation_end_dates
                                     })
             averaged_data = []
-            for _, row in aggregation_dates_df.iterrows():
+            for _, row in aggregation_dates_df.iterrows(): #was thinking of taking this loop out intp a function then using .apply()
                 df_filtered = df[(df['Date'] <= row['aggregation_start_dates']) & (df['Date'] >= row['aggregation_end_dates'])]
                 numeric_mean = df_filtered.mean(numeric_only=True)
                 columns_to_keep = df_filtered.columns
