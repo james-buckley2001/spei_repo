@@ -3,14 +3,15 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import numpy as np
 
-#TODO if no name in first heading then use second heading
+#TODO if no name in first heading then use second heading - or just use second heading?
 
 @dataclass
 class DataStorage():
     possible_acculmulation_periods:list[float] = field(default_factory=list)
     gld_time_period : list[float] = field(default_factory=list)
-    _wd : Path = Path(r'C:\Users\BUCKLEJ1\OneDrive - Jacobs\Documents\SPEI Application\data_from_ea\Task 2 SPI SPEI\Input files')
+    _wd : Path = Path.cwd() / Path(r'spei_env\InputData')
     _rainfall_input_data_file_name : str = r'WSR_HydAreas_HadUK_v1_2_0_0_1871_ForRainfallAnalysis.xlsx'
     _pet_input_data_file_name : str = r'WSR_EA-PET_1961_HydAreasForGrassPET_Eng.xlsx'
     _start_year : str = r'1961'
@@ -87,18 +88,38 @@ class SpeiCalculator(DataStorage):
         self.list_of_time_series_rainfall = self.produce_mean_time_series_one_starting_each_month(df = self.rainfall_data)
         self.list_of_time_series_pet = self.produce_mean_time_series_one_starting_each_month(df = self.pet_data)
 
-    def calculate_water_balance(self):
-        #pet = potential evapotranspiration
-        #for each date, for each time series
-        pass
+    def align_two_dataframes(self, df_rainfall, df_pet):
+            common_columns = df_rainfall.columns.intersection(df_pet.columns)
+            df_rainfall = df_rainfall[common_columns]
+            df_pet = df_pet[common_columns]
+            df_rainfall, df_pet  = df_rainfall.align(df_pet, join='outer', axis=None, fill_value=np.nan)
+            return df_rainfall, df_pet
+
+
+    def calculate_water_balance(self): #code needs to ensure correct columns are deducted
+        water_balance_ts_list = []
+        for month in range(1,13):
+            index = month -1
+
+            self.list_of_time_series_pet[index].set_index('Date', inplace=True)
+            self.list_of_time_series_rainfall[index].set_index('Date', inplace=True)
+
+            rainfall_ts, pet_ts = self.align_two_dataframes(self.list_of_time_series_rainfall[index], 
+                                                       self.list_of_time_series_pet[index])
+
+            water_balance_ts = rainfall_ts.sub(pet_ts, fill_value=np.nan)
+
+            water_balance_ts_list.append(water_balance_ts)
+
+        self.water_balance_ts_list = water_balance_ts_list
 
     def standardise_values(self):
         pass #within here we will fit GLD 
 
 
 if __name__ == '__main__':
-
     spei_calc = SpeiCalculator(acculmulation_period= 6)
     spei_calc.import_input_data()
     spei_calc.aggregate_water_balance_data()
+    spei_calc.calculate_water_balance()
     print('egg')
