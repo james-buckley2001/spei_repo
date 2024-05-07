@@ -38,8 +38,12 @@ class SpeiCalculator(DataStorage):
             df.rename(columns={'year': 'Year'}, inplace=True)
         if 'month' in df.columns:
             df.rename(columns={'month': 'Month'}, inplace=True)
+
+        new_columns = [(top, bottom) if 'Unnamed' not in bottom else (top,top) for top, bottom in df.columns] #replacing missing headers in bottom row
+        df.columns = pd.MultiIndex.from_tuples(new_columns)
+
         headers = df.columns
-        df.columns = df.columns.droplevel(1)
+        df.columns = df.columns.droplevel(0) #place names are removed and stored for later matching, place IDs are kept
         return df, headers
 
     def import_input_data(self):
@@ -54,10 +58,11 @@ class SpeiCalculator(DataStorage):
             dates_list.append(new_date)
             start_date_obj = new_date
         return dates_list
+    
 
     def produce_mean_time_series_one_starting_each_month(self, df = None) -> pd.DataFrame: 
         df['Date'] = pd.to_datetime(df[['Year', 'Month']].assign(day=1))
-
+        self.df = df
         list_of_time_series = []
         for month in range(1,13):
             start_date = datetime.strptime(f'{self._start_year}-{month:02d}-01', '%Y-%m-%d')
@@ -69,20 +74,22 @@ class SpeiCalculator(DataStorage):
                                         'aggregation_end_dates': aggregation_end_dates
                                     })
             averaged_data = []
-            for _, row in aggregation_dates_df.iterrows(): #was thinking of taking this loop out intp a function then using .apply()
-                df_filtered = df[(df['Date'] <= row['aggregation_start_dates']) & (df['Date'] >= row['aggregation_end_dates'])]
-                numeric_mean = df_filtered.mean(numeric_only=True)
-                columns_to_keep = df_filtered.columns
-                mean_df = pd.DataFrame(columns=columns_to_keep)
-                mean_df.loc[0] = numeric_mean
-                mean_df.drop(columns=['Year', 'Month', 'Status'], inplace=True)
-                mean_df['Date'] = row['aggregation_start_dates']
-                averaged_data.append(mean_df)
-
+            aggregation_dates_df.apply(lambda row: self.calculate_mean_for_given_date_range(row, output_list = averaged_data), axis = 1)
             time_series_df =  pd.concat(averaged_data, axis=0)
             list_of_time_series.append(time_series_df)
-
+        self.df = None
         return list_of_time_series
+    
+    def calculate_mean_for_given_date_range(self, row, output_list):
+        df = self.df
+        df_filtered = df[(df['Date'] <= row['aggregation_start_dates']) & (df['Date'] >= row['aggregation_end_dates'])]
+        numeric_mean = df_filtered.mean(numeric_only=True)
+        columns_to_keep = df_filtered.columns
+        mean_df = pd.DataFrame(columns=columns_to_keep)
+        mean_df.loc[0] = numeric_mean
+        mean_df.drop(columns=['Year', 'Month', 'Status'], inplace=True)
+        mean_df['Date'] = row['aggregation_start_dates']
+        output_list.append(mean_df)
 
     def aggregate_water_balance_data(self):
         self.list_of_time_series_rainfall = self.produce_mean_time_series_one_starting_each_month(df = self.rainfall_data)
@@ -100,17 +107,13 @@ class SpeiCalculator(DataStorage):
         water_balance_ts_list = []
         for month in range(1,13):
             index = month -1
-
             self.list_of_time_series_pet[index].set_index('Date', inplace=True)
             self.list_of_time_series_rainfall[index].set_index('Date', inplace=True)
-
             rainfall_ts, pet_ts = self.align_two_dataframes(self.list_of_time_series_rainfall[index], 
                                                        self.list_of_time_series_pet[index])
-
             water_balance_ts = rainfall_ts.sub(pet_ts, fill_value=np.nan)
-
+            water_balance_ts = water_balance_ts.reset_index()
             water_balance_ts_list.append(water_balance_ts)
-
         self.water_balance_ts_list = water_balance_ts_list
 
     def standardise_values(self):
@@ -118,8 +121,18 @@ class SpeiCalculator(DataStorage):
 
 
 if __name__ == '__main__':
-    spei_calc = SpeiCalculator(acculmulation_period= 6)
+    spei_calc = SpeiCalculator(acculmulation_period = 18)
     spei_calc.import_input_data()
+
+    #print(spei_calc.rainfall_data)
+    #print(spei_calc.pet_data)
+
     spei_calc.aggregate_water_balance_data()
+    #print(spei_calc.list_of_time_series_rainfall)
+    #print(spei_calc.list_of_time_series_pet)
+
     spei_calc.calculate_water_balance()
+    #print(spei_calc.water_balance_ts_list)
+
+
     print('egg')
