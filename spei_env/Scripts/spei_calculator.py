@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import numpy as np
+from scipy import stats
+from scipy.stats import genlogistic
+from scipy.stats import logistic
+
+
 
 #TODO if no name in first heading then use second heading - or just use second heading?
 
@@ -117,7 +122,34 @@ class SpeiCalculator(DataStorage):
         self.water_balance_ts_list = water_balance_ts_list
 
     def standardise_values(self):
-        pass #within here we will fit GLD 
+        normalised_ts_list = []
+        for water_balance_ts in self.water_balance_ts_list:
+            water_balance_ts.reset_index(inplace=True)
+            water_balance_ts.set_index('Date', inplace=True, drop = True)
+            water_balance_ts.drop(columns = ['index'], inplace=True)
+
+            normalised_data_list = []
+            #fitting and normalising by GLD
+            for column_name, column_data in water_balance_ts.items():
+                self.normalise_data_using_gld(data = column_data, 
+                                              output_list = normalised_data_list,
+                                              column_name = column_name)
+                
+
+            normalised_data_df =  pd.concat(normalised_data_list, axis=1)
+            normalised_data_df.reset_index(inplace=True)
+            normalised_ts_list.append(normalised_data_df)
+
+        normalised_ts_df =  pd.concat(normalised_ts_list, axis=0)
+        self.spei_values = normalised_ts_df
+
+
+    def normalise_data_using_gld(self, data, column_name, output_list):
+        _c_estimated, mu_estimated, sigma_estimated = genlogistic.fit(data)
+        normalised_data = (data - mu_estimated) / sigma_estimated
+        normalised_data.columns = column_name
+        output_list.append(normalised_data)
+
 
 
 if __name__ == '__main__':
@@ -134,5 +166,8 @@ if __name__ == '__main__':
     spei_calc.calculate_water_balance()
     #print(spei_calc.water_balance_ts_list)
 
+    spei_calc.standardise_values()
+    print(spei_calc.spei_values.sort_values(by='Date'))
+    #TODO reattach headers
 
     print('egg')
