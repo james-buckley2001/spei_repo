@@ -153,7 +153,7 @@ class SpeiCalculator(DataStorage):
 
 
 if __name__ == '__main__':
-    spei_calc = SpeiCalculator(acculmulation_period = 18)
+    spei_calc = SpeiCalculator(acculmulation_period = 6)
     spei_calc.import_input_data()
 
     #print(spei_calc.rainfall_data)
@@ -168,6 +168,6 @@ if __name__ == '__main__':
 
     spei_calc.standardise_values()
     print(spei_calc.spei_values.sort_values(by='Date'))
-    #TODO reattach headers
+    #TODO reattach headers, truncate SPEI values at 5?
 
     print('egg')
