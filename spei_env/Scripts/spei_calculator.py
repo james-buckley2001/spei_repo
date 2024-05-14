@@ -7,15 +7,14 @@ import numpy as np
 from scipy import stats
 from scipy.stats import genlogistic
 from scipy.stats import logistic
-
-
+from typing import List
 
 #TODO if no name in first heading then use second heading - or just use second heading?
 
 @dataclass
 class DataStorage():
-    possible_acculmulation_periods:list[float] = field(default_factory=list)
-    gld_time_period : list[float] = field(default_factory=list)
+    possible_acculmulation_periods:List[float] = field(default_factory=list)
+    gld_time_period : List[float] = field(default_factory=list)
     _wd : Path = Path.cwd() / Path(r'spei_env\InputData')
     _rainfall_input_data_file_name : str = r'WSR_HydAreas_HadUK_v1_2_0_0_1871_ForRainfallAnalysis.xlsx'
     _pet_input_data_file_name : str = r'WSR_EA-PET_1961_HydAreasForGrassPET_Eng.xlsx'
